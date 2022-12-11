@@ -9,3 +9,11 @@ export type Post = {
   coverImage: string;
   readingTime: string;
 };
+
+export type Snippet = {
+  slug: string;
+  content: MDXRemoteSerializeResult;
+  title: string;
+  description: string;
+  logo: string;
+};

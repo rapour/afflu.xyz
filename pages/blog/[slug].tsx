@@ -1,9 +1,6 @@
 import { MDXRemote } from 'next-mdx-remote';
 import BlogLayout from 'layouts/blog';
 import components from 'components/MDXComponents';
-// import { postQuery, postSlugsQuery } from 'lib/queries';
-// import { getTweets } from 'lib/twitter';
-// import { sanityClient, getClient } from 'lib/sanity-server';
 import { getFileBySlug, getFiles, mdxToHtml } from 'lib/mdx';
 import { Post } from 'lib/types';
 
