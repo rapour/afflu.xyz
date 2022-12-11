@@ -4,7 +4,6 @@ import { PropsWithChildren, Suspense } from 'react';
 
 import Container from 'components/Container';
 import { Post } from 'lib/types';
-import { urlForImage } from 'lib/sanity';
 
 export default function BlogLayout({
   children,
@@ -14,7 +13,7 @@ export default function BlogLayout({
     <Container
       title={`${post.title} – Reza A. Alipour`}
       description={post.excerpt}
-      image={urlForImage(post.coverImage).url()}
+      image={post.coverImage}
       date={new Date(post.date).toISOString()}
       type="article"
     >
@@ -25,7 +24,7 @@ export default function BlogLayout({
         <div className="flex flex-col items-start justify-between w-full mt-2 md:flex-row md:items-center">
           <div className="flex items-center">
             <Image
-              alt="Lee Robinson"
+              alt="Reza A. Alipour"
               height={24}
               width={24}
               sizes="20vw"
@@ -33,7 +32,7 @@ export default function BlogLayout({
               className="rounded-full"
             />
             <p className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-              {'Lee Robinson / '}
+              {'Reza A. Alipour / '}
               {format(parseISO(post.date), 'MMMM dd, yyyy')}
             </p>
           </div>
