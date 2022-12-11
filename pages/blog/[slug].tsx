@@ -39,18 +39,18 @@ export async function getStaticPaths() {
 
 
 export async function getStaticProps({ params }) {
-  const post = await getFileBySlug('blog', params.slug);
+  const {content, ...data} = await getFileBySlug('blog', params.slug);
 
-  if (!post) {
+  if (!content) {
     return { notFound: true };
   }
 
-  const { html, readingTime } = await mdxToHtml(post.content);
+  const { html, readingTime } = await mdxToHtml(content);
 
   return {
     props: {
       post: {
-        ...post,
+        ...data,
         content: html,
         readingTime
       }
