@@ -60,9 +60,9 @@ export default function Blog({
               Featured
             </h3>
             <BlogPost
-              title="Rust Is The Future of JavaScript Infrastructure"
-              excerpt="Why is Rust being used to replace parts of the JavaScript web ecosystem like minification (Terser), transpilation (Babel), formatting (Prettier), bundling (webpack), linting (ESLint), and more?"
-              slug="rust"
+              title="What this blog is about"
+              excerpt="A short story about the motivations behind this blog."
+              slug="intro"
             />
           </>
         )}
