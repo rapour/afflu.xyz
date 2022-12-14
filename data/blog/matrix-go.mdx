@@ -1,0 +1,298 @@
+---
+title: 'Recursive Matrix Determinant Calculation Using Go'
+date: '2022-12-14'
+excerpt: 'A hands-on approach to implement the algorithm.'
+coverImage: '/static/images/fonts/banner.png'
+---
+
+Some time ago while I was trying to learn the [Go programming language](https://go.dev/), 
+I thought of documenting some of the funnier aspects of my journey. Now here I am, with my very first 
+post on Medium and it’s about using Go’s packaging mentality to implement a recursive method to calculate 
+Square Matrices’ determinant.
+
+TL;DR: The project discussed in this post is accessible via this [GitHub repository](https://github.com/rapour/determinant).
+
+---
+
+[Determinants](https://en.wikipedia.org/wiki/Determinant) are only defined over square matrices and can 
+be derived under a recursive algorithm, like the one discussed in this [lecture](https://warwick.ac.uk/fac/sci/physics/research/condensedmatt/imr_cdt/students/david_goodwin/teaching/cis008-2/determinant_algorithm_cis008-2_lec_21.pdf), which we will employ here.
+
+We are not going to walk through the details of this algorithm here and focus only on the implementation 
+itself. However, being familiar with it is a prerequisite to what we discuss here.
+
+Before going after a matrix’s determinant, first, we need to have a notion of a matrix itself.
+
+Go is a strictly-typed language, and we can exploit this trait to modularize our code. We intend to 
+decouple the implementation of the matrix concept from the main package.
+
+Therefore, we need to initialize a Go module. initialize a new module with the following command in 
+the project root directory:
+
+```shell
+go mod init "example/det"
+```
+
+We define a new type named `Matrix` and put it inside a `matrix` package alongside our `main` package, 
+under the following structure:
+
+```
+├── main.go
+├── matrix
+│   ├── matrix.go
+├── go.mod
+```
+
+Our matrix would be a two-dimensional slice of float numbers. The `matrix.go` would look like as follows:
+
+```go
+package matrix
+
+type Matrix [][]float64
+```
+
+Next, we are going to define some methods for this type. Go permits the definition of operations over a type, 
+a pattern that resembles OOP programming languages. Since a determinant is only defined for square matrices, 
+we have to have a way to check if a matrix is square. Let’s define functions to get the number of rows and 
+columns of a `Matrix` instance:
+
+```go
+func (m Matrix)Rows() int {
+  return len(m)
+}
+
+// we assume the Matrix have the same number of elements in each row and
+// is not empy, which is true for all matrices
+func (m Matrix) Columns() int {
+ return len(m[0])
+}
+
+func (m Matrix) IsSquare() bool {
+ return m.Columns() == m.Rows()
+}
+```
+
+Besides, our definition of the matrix at this point doesn’t enforce an `Matrix` instance to actually 
+be a matrix. One can define a `Matrix` instance in a way that different rows have a different number of 
+elements; a structure that is definitely not a matrix! We will discuss a solution to address this problem 
+later, but for now, we would need a method to confirm a `Matrix` is indeed a matrix! To check for a Matrix 
+instance to be a matrix is to check for it not to be empty and have the same number of elements in each row:
+
+```go
+func (m Matrix) IsMatrix() bool {
+
+ if m.Rows() == 0 {
+  return false
+ }
+
+ for _, row := range m {
+
+  if len(m[0]) != len(row) {
+   return false
+  }
+
+ }
+
+ return true
+}
+```
+
+Now we are ready to start writing a method for determinant calculation. First, we check whether 
+the `Matrix` instance is a valid square matrix. Subsequently, if a matrix is 2×2 in size, the determinant 
+is simply calculated using the following expression:
+
+$$
+det(\begin{bmatrix} a & b \\ c & d \end{bmatrix}) = ac - bd
+$$
+
+Our method at this point would be:
+
+```go
+func (m Matrix) Det() (float64, error) {
+
+ if !m.IsMatrix() || !m.IsSquare() {
+  return -1, 
+  fmt.Errorf(
+    "determinant is not defined for the input [Matrix: %t][Square: %t]",
+    m.IsMatrix(), m.IsSquare())
+ }
+
+ if m.Rows() == 2 {
+   return m[0][0]*m[1][1] - m[0][1]*m[1][0], nil
+ }
+
+  //TODO: calculate the determinant otherwise
+  return 0, nil
+}
+```
+
+For bigger matrices, determinants could be calculated recursively. For example, the determinant of a 3×3 matrix is derived through the following expression:
+
+$$
+det(\begin{bmatrix} a & b & c \\ d & e & f \\ g & h & i \end{bmatrix}) = a \times det(\begin{bmatrix} e & f \\ h & i \end{bmatrix}) - b \times det(\begin{bmatrix} d & f \\ g & i \end{bmatrix}) + c \times det(\begin{bmatrix} d & e \\ g & h \end{bmatrix}) 
+\\
+\\
+A = \begin{bmatrix} e & f \\ h & i \end{bmatrix} \quad
+B = \begin{bmatrix} d & f \\ g & i \end{bmatrix} \quad
+C = \begin{bmatrix} d & e \\ g & h \end{bmatrix}
+$$
+
+As you see, to implement this algorithm, we need to compute the submatrices A, B, and C. Upon observing these submatrices you realize they have been created by removing a particular row and a column from the original matrix.
+Such an iterative approach can be generalized to n×n matrices, where determinant expression at each iteration breaks into the determinants of a set of submatrices. Since the algorithm works iteratively, it's adequate to remove one row and one column at each iteration. The following function will remove a column from the matrix and return the consequent matrix.
+
+```go
+func InBetween(i, min, max int) bool {
+ if (i >= min) && (i <= max) {
+  return true
+ } else {
+  return false
+ }
+}
+
+func (m Matrix) ExcludeColumn(col_index int) (Matrix, error) {
+
+ if !InBetween(col_index, 1, m.Columns()) {
+  return Matrix{}, fmt.Errorf("input not in range")
+ }
+
+ result := make(Matrix, m.Rows())
+ for i, row := range m {
+  for j, el := range row {
+   if j == col_index-1 {
+    continue
+   }
+   result[i] = append(result[i], el)
+  }
+ }
+ return result, nil
+}
+```
+
+Note the function `InBetween` that is used to ensure the removing column's index lies inside the valid range. We take each row of the input matrix and copy the elements into another matrix except the ones in `col_index` column. Excluding a row would be implemented with the same mentality:
+
+```go
+func (m Matrix) ExcludeRow(row_index int) (Matrix, error) {
+ if !InBetween(row_index, 1, m.Rows()) {
+  return Matrix{}, fmt.Errorf("input not in range")
+ }
+
+ var result Matrix
+ for i, r := range m {
+  if i == row_index-1 {
+   continue
+  }
+  result = append(result, r)
+ }
+ return result, nil
+}
+```
+
+Again, we take each row of the input matrix and append the whole row to the new matrix, except the `row_index` row. Now we are ready to complete our `Det` function.
+
+```go
+func (m Matrix) Det() (float64, error) {
+
+ if !m.isMatrix() || !m.isSquare() {
+  return -1, fmt.Errorf("determinant is not defined for the input [Matrix: %t][Square: %t]",
+   m.isMatrix(), m.isSquare())
+ }
+
+ if m.Rows() == 2 {
+  return m[0][0]*m[1][1] - m[0][1]*m[1][0], nil
+ }
+
+ // if rows are more than 2
+ // exclude the first row accoring to the algorithm
+ partial_matrix, err := m.ExcludeRow(1)
+ if err != nil {
+  return -1, err
+ }
+
+ var temp float64 = 0
+
+ // iterate over the elements of the first row
+ for i, el := range m[0] {
+
+  // get the corresponding submatrix
+  reduced_matrix, err := partial_matrix.ExcludeColumn(i + 1)
+  if err != nil {
+   return -1, err
+  }
+  
+  // get the dterminant of the submatrix, recursively
+  partial_det, err := reduced_matrix.Det()
+  if err != nil {
+   return -1, err
+  }
+
+  // determinant would be the sum of the determinant of 
+  //the sumatrices multiplied by the right coefficients
+  temp = temp + partial_det*el*math.Pow(-1, float64(i))
+ }
+
+ return temp, nil
+}
+```
+
+Note the use of standard `math` package to compute the sign of each multiplication coefficient in our algorithm. We can use our newly curated package to compute the determinant of a matrix in the main package:
+
+```go
+package main
+
+import (
+ "example/det/matrix"
+ "fmt"
+ "log"
+)
+
+func main() {
+
+// sample matrix
+ matrix := matrix.Matrix{
+  {3, 6, 2, 4},
+  {7, 1, 5, 3},
+  {9, 9, 1, 2},
+  {4, 6, 3, 2}}
+
+ det, err := matrix.Det()
+ if err != nil {
+  log.Fatalf("Error in calculating the determinant: %v", err)
+ }
+
+ fmt.Printf("The determinant is: %f", det)
+
+}
+```
+
+The output would be the true determinant of the sample matrix:
+
+```bash
+The determinant is: -543.000000
+```
+---
+
+## Matrix Validation
+
+Our initial implementation allowed the initialization of `Matrix` instances that were not a matrix mathematically.
+This is an implementation concern rather than a mathematical one. A typical solution would be to alter `Matrix` into an unexported type that will only be accessible through an instantiation fiction that you implement and will have adequate validations in place.
+I am not going into details of the implementation, but the structure would be something like this:
+
+```go
+package matrix 
+
+import "fmt"
+
+type matrix [][]float64
+
+func GenerateNewMarix(input [][]float64) (matrix, error){
+  
+  // do some validations on input argument and see if it passes the checks
+  passed := true
+
+  if !passed {
+    return matrix{}, fmt.Errorf("error, not passed") 
+  }
+
+  
+  return matrix(input), nil
+}
+```

@@ -1,41 +1,16 @@
 ---
-title: 'Search'
-description: 'React Context hook for search values.'
-logo: '/static/images/snippets/search/react.png'
+title: 'Fibonacci'
+description: 'Simple python fibonacci sequence generator'
+logo: '/static/images/snippets/fibonacci/Python-Pic.png'
 ---
 
-```js
-import React, { useState, useContext, createContext } from 'react';
+```python
+from collections import deque 
 
-const searchContext = createContext();
+chain = deque([0, 1])
+length = 20
 
-export function ProvideSearch({ children }) {
-  const search = useProvideSearch();
-  return (
-    <searchContext.Provider value={search}>{children}</searchContext.Provider>
-  );
-}
-
-export const useSearch = () => {
-  return useContext(searchContext);
-};
-
-function useProvideSearch() {
-  const [search, setSearch] = useState('');
-
-  const onSearch = (e) => {
-    e.preventDefault();
-
-    const searchValue = e.target.value;
-    const valueWithoutSlash = searchValue.replace('/', '');
-
-    setSearch(valueWithoutSlash);
-    return valueWithoutSlash;
-  };
-
-  return {
-    onSearch,
-    search
-  };
-}
+for i in range(length):
+    chain.append(chain[0]+chain[1])
+    print(chain.popleft())
 ```

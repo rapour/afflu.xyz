@@ -2,7 +2,9 @@ import { serialize } from 'next-mdx-remote/serialize';
 import readingTime from 'reading-time';
 import matter from 'gray-matter';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math'
 import rehypeSlug from 'rehype-slug';
+import rehypeKatex from 'rehype-katex'
 import rehypeCodeTitles from 'rehype-code-titles';
 import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import rehypePrism from 'rehype-prism-plus';
@@ -32,11 +34,12 @@ export async function getFileBySlug(type, slug) {
 export async function mdxToHtml(source) {
   const mdxSource = await serialize(source, {
     mdxOptions: {
-      remarkPlugins: [remarkGfm],
+      remarkPlugins: [remarkGfm, remarkMath],
       rehypePlugins: [
         rehypeSlug,
         rehypeCodeTitles,
         rehypePrism,
+        rehypeKatex,
         [
           rehypeAutolinkHeadings,
           {
