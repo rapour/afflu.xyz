@@ -12,6 +12,7 @@ import path from 'path';
 import fs from 'fs';
 
 
+
 const root = process.cwd();
 
 export async function getFiles(type) {
@@ -39,7 +40,10 @@ export async function mdxToHtml(source) {
         rehypeSlug,
         rehypeCodeTitles,
         rehypePrism,
-        rehypeKatex,
+        [
+          rehypeKatex,
+          {}
+        ],
         [
           rehypeAutolinkHeadings,
           {
