@@ -114,12 +114,12 @@ Next, we are going to talk about how to implement this solution in Python.
 This implementation is not meant to be bug-free and production-ready and is just a glimpse into 
 what the proposed solution might look like. Additionally, we assume the producer application is 
 already in place and produces events. The consumer application receives events as they are produced,
-process them, commits them on Kafka, and sends a new event containing the results to a seperate 
+process them, commits them on Kafka, and sends a new event containing the results to a separate 
 topic to inform the producer of the result of the process. We also use [Protocol Buffers](https://developers.google.com/protocol-buffers)
 to serialize our communication. 
 
 
-What every worker is about to do is cpu-bound. Therefore, seperating workers as threads is not ideal
+What every worker is about to do is cpu-bound. Therefore, separating workers as threads is not ideal
 as threads are meant for io-bound tasks rather than cpu-bound tasks. We need a module to provide a 
 platform to spawn multiple worker instances as processes and execute them. The following module would 
 do the job:
