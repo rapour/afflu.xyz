@@ -40,10 +40,7 @@ export async function mdxToHtml(source) {
         rehypeSlug,
         rehypeCodeTitles,
         rehypePrism,
-        [
-          rehypeKatex,
-          {}
-        ],
+        rehypeKatex,
         [
           rehypeAutolinkHeadings,
           {

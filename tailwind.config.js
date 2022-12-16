@@ -1,5 +1,18 @@
 const { spacing, fontFamily } = require('tailwindcss/defaultTheme');
 
+// https://building.hellonext.co/blog/disable-tailwind-prose-code
+const disabledCss = {
+	'code::before': false,
+	'code::after': false,
+	'blockquote p:first-of-type::before': false,
+	'blockquote p:last-of-type::after': false,
+	//pre: false,
+	code: false,
+	'pre code': false,
+	'code::before': false,
+	'code::after': false,
+}
+
 module.exports = {
   content: ['./pages/**/*.tsx', './components/**/*.tsx', './layouts/**/*.tsx'],
   darkMode: 'class',
@@ -42,7 +55,8 @@ module.exports = {
             },
             code: { color: theme('colors.pink.500') },
             'blockquote p:first-of-type::before': false,
-            'blockquote p:last-of-type::after': false
+            'blockquote p:last-of-type::after': false,
+            ...disabledCss
           }
         },
         dark: {
@@ -85,9 +99,14 @@ module.exports = {
               tr: {
                 borderBottomColor: theme('colors.gray.700')
               }
-            }
+            },
+            ...disabledCss
           }
-        }
+        },
+        sm: { css: disabledCss },
+				lg: { css: disabledCss },
+				xl: { css: disabledCss },
+				'2xl': { css: disabledCss },
       })
     }
   },
