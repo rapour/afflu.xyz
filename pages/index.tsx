@@ -20,7 +20,7 @@ export default function Home() {
               </h2>
               <p className="text-gray-600 dark:text-gray-400 mb-16">
                 Here I write about anything that occupies my mind and might be interesting to you. 
-                They might revolve around development and tech, mathematics, or even social controversies. 
+                They often revolve around development and tech, mathematics, or even social controversies. 
               </p>
             </div>
             <div className="w-[80px] sm:w-[176px] relative mb-8 sm:mb-0 mr-auto">

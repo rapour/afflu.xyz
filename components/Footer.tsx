@@ -32,7 +32,7 @@ export default function Footer() {
           </Link>
         </div>
         <div className="flex flex-col space-y-4">
-          <ExternalLink href="https://google.com">
+          <ExternalLink href="https://www.linkedin.com/in/reza-abbasalipour-b245a491">
             Linkedin
           </ExternalLink>
           <ExternalLink href="https://github.com/rapour">GitHub</ExternalLink>
