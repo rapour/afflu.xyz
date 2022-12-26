@@ -1,0 +1,69 @@
+---
+title: 'Why is Go so darn fast?'
+date: '2022-12-25'
+excerpt: "A simple explanation as to why Go is good at performing concurrent tasks"
+coverImage: '/static/images/blog/why-is-go-so-darn-fast/banner.png'
+---
+
+Go is famous for being fast. In fact, Go's outstanding performance manifests the best when 
+used in concurrent tasks. While there are many facets that enables Go to perform well in concurrent 
+tasks, there is one particular ingenious in Go that is of great importance. Go helps the underlying 
+OS and takes responsibility of some the heavy liftings. 
+
+To understand the extent of this help, a short context is in order. There are quite a few 
+hardware-level cpu core's on a single PC, e.g. 8 logical CPU cores on a core-i7
+ processor. However, when you boot up a PC, there are probably hundreds of processes that run 
+ simultaneously. How is that possible? Every prominent OS has a task scheduler is tasked to 
+ allocate processor's resources to threads. A thread is a path of execution containing an ordered 
+ set of machine instructions and each process has one or more of them. 
+ 
+ Generally, a thread can be in three different states: It's in **Executing** when it's currently 
+ running on a CPU core. It's in **Runnable** state when it's ready to be executed, and it's in a 
+ **Wating** state when it is stopped, waiting for something to happen, e.g. an I/O operation and 
+ cannot be run. Threads switch between these states
+ and when they are ready the scheduler designates them a time slot on a CPU core to be executed. A naive
+ scheduler would simply split the core's slot uniformly and give a each runnable thread a similar share.
+ For example if the core's slot is 1s and there are 100 runnable threads, each thread would get 10ms of 
+ core's computation time. 
+ 
+ If there are threads to be run, the scheduler makes sure none of the cores 
+ would remain idle. The procedure in which the scheduler takes a thread off a CPU core and replaces
+ another one to be executed is called context switch. The point is, each context switch is 
+ tremendously expensive. It's been said that each context switch takes the equivalent time of running 
+ a few thousand machine instructions.  
+
+Two types of threads exist. Some threads never encounter a point where they should wait for some 
+system call or a request for a network request to accomplish before they can go further and they are always
+runnable. The instruction sequence in these threads can push forward seamlessly and the only limit 
+to how fact they can execute is the computation power of the CPU. Therefore, they are called 
+**CPU-Bound** threads. Naturally, there is another type of thread that is occasionally stopped 
+for some IO tasks and cannot continue until those IO tasks are complete. That is to say they get into
+waiting state along the way and when they do, they are switched by the OS scheduler. These are called 
+**IO-Bound** threads. 
+
+Normally, when performing concurrent tasks via a single process, employing multithreading 
+would prompt programming language's runtime to split the tasks into threads and let the OS 
+manage the way they are executed. If the threads are IO-Bound, scheduler's context swithes would
+let them run *alomst* in parallel and therefore there is a performance surge compared to a naive 
+approach where core would remain idle when a thread is waiting for a IO task. However, If this 
+process has multiple threads over each core and all those threads are CPU-Bound, the ensuing 
+context swithces would result the process's performance to drop drastically. That is why running 
+simple CPU-Bound computations concurrently over a multitide of threads, say a million, is not a 
+good idea. The fact is, when the OS scheduler takes over, the context switch overhead is there
+regardless of the types of the threads running. What makes context switch cost-effective 
+is that the payoff, avoiding idle cores, is magnificant when IO-Bound threads are involved. 
+More importantly, context switch would make different processes to look like they are running in 
+parallel. These make the overhead inevitable in the OS level.
+
+
+But, what if we could mitigate such an overhead at the application level. Runtime has more control
+over threads of an application. If one could exploit the privilages of a runtime over its threads to
+perform context switches more efficiently, the overhead would drop and the performance would improve.
+The Go's runtime scheduler is apparently designed with the same mentality. 
+
+Go has introcuded a new abtract layer over threads in its runtime to decouple ordered tasks, 
+execution threads, from the OS threads. Go's conceptual model calls a locigcal CPU core a processor 
+or a **(P)** and a thread a machine or an **(M)**. Threads of execution are called Goroutine or 
+**(G)** and they are different than <b>(M)</b>s. 
+
+

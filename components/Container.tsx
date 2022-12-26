@@ -39,7 +39,7 @@ export default function Container(props) {
   const meta = {
     title: 'Reza A. Alipour – An afflux of ideas.',
     description: `Developer and math enthusiast.`,
-    // image: 'https://leerob.io/static/images/lee-banner.png',
+    image: 'https://afflu.xyz/static/images/RA.png',
     type: 'website',
     ...customMeta
   };
