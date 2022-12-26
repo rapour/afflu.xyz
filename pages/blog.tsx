@@ -27,9 +27,10 @@ export default function Blog({
           Blog
         </h1>
         <p className="mb-4 text-gray-600 dark:text-gray-400">
-          {`I've been writing online since 2022, mostly about web development and tech careers.
-            In total, I've written ${posts.length} articles on my blog.
-            Use the search below to filter by title.`}
+          {`I have just started writing online and as time passes, my passion for writing is increasing.
+          I appreciate that I can share my thoughts and I would be more than happy to have your 
+          honest opinion on them. Feel free to explore and read them. I hope I will have been some
+          help when you are done. There is a total of ${posts.length} posts available here.`}
         </p>
         <div className="relative w-full mb-4">
           <input
