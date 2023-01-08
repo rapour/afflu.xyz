@@ -4,7 +4,10 @@ description: 'A go worker pattern with a single recoverable worker.'
 logo: '/static/images/snippets/single-worker/Go_Logo.png'
 ---
 
-Note that the anti-pattern in closing the task input channel prevents it from scaling beyond one worker goroutine.
+This is a simple implementation for a TurnOut channel model. The task is to compute the division
+of an array of ordered pairs and recover if the division is invalid and causes a panic. Note that 
+the anti-pattern in closing the task input channel prevents it from scaling beyond one worker 
+goroutine.
 
 ```go
 package main
@@ -25,15 +28,14 @@ type Input struct {
 var errors uint64
 var done uint64
 
-func flusher(inputs <-chan Input, results chan int) {
+func FanOut(inputs <-chan Input, results chan int) {
 
-	fmt.Println("flusher activated")
 	defer func() {
 
 		if r := recover(); r != nil {
 			fmt.Printf("recovering from panic: %v\n", r)
 			atomic.AddUint64(&errors, 1)
-			go flusher(inputs, results)
+			go FanOut(inputs, results)
 		} else {
 			close(results)
 		}
@@ -41,26 +43,29 @@ func flusher(inputs <-chan Input, results chan int) {
 	}()
 
 	for in := range inputs {
-
+		// output could be sent to different channels
 		results <- in.first / in.second
 		atomic.AddUint64(&done, 1)
 	}
 
 }
 
-func workerWithQuit(quit <-chan int, inputs chan Input, results chan int) {
+func TurnOut(quit <-chan int, inputs chan Input, results chan int) {
 
 	defer func() {
 
 		if r := recover(); r != nil {
 			fmt.Printf("recovering from panic: %v\n", r)
 			atomic.AddUint64(&errors, 1)
-			go workerWithQuit(quit, inputs, results)
+			go TurnOut(quit, inputs, results)
 		}
 
 	}()
 
 	for {
+		// inputs could be received from different input channels. 
+		// Here is just one
+
 		select {
 		case in := <-inputs:
 			results <- in.first / in.second
@@ -68,7 +73,7 @@ func workerWithQuit(quit <-chan int, inputs chan Input, results chan int) {
 		case <-quit:
 			close(inputs)
 			// flush the remaining tasks
-			go flusher(inputs, results)
+			go FanOut(inputs, results)
 			return
 		}
 	}
@@ -88,9 +93,10 @@ func aggregator(results chan int, wg *sync.WaitGroup) {
 func main() {
 
 	rand.Seed(time.Now().Unix())
+	JobsNum := 200
 
 	testIns := []Input{}
-	for i := 0; i < 2000; i++ {
+	for i := 0; i < JobsNum; i++ {
 		tmp := Input{
 			first:  rand.Intn(5),
 			second: rand.Intn(5),
@@ -102,7 +108,7 @@ func main() {
 	results := make(chan int, 5)
 	quit := make(chan int)
 
-	go workerWithQuit(quit, inputs, results)
+	go TurnOut(quit, inputs, results)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -116,7 +122,8 @@ func main() {
 
 	wg.Wait()
 
-	fmt.Printf("Number of errors: [%d]\nNumber of successfully done tasks:[%d]\n", errors, done)
+	fmt.Printf("Number of jobs:[%d]\nNumber of errors:[%d]\nNumber of successfully done tasks:[%d]\n",
+		JobsNum, errors, done)
 
 }
 ```
