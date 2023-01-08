@@ -1,0 +1,122 @@
+---
+title: 'Single recoverable worker'
+description: 'A go worker pattern with a single recoverable worker.'
+logo: '/static/images/snippets/single-worker/Go_Logo.png'
+---
+
+Note that the anti-pattern in closing the task input channel prevents it from scaling beyond one worker goroutine.
+
+```go
+package main
+
+import (
+	"fmt"
+	"math/rand"
+	"sync"
+	"sync/atomic"
+	"time"
+)
+
+type Input struct {
+	first  int
+	second int
+}
+
+var errors uint64
+var done uint64
+
+func flusher(inputs <-chan Input, results chan int) {
+
+	fmt.Println("flusher activated")
+	defer func() {
+
+		if r := recover(); r != nil {
+			fmt.Printf("recovering from panic: %v\n", r)
+			atomic.AddUint64(&errors, 1)
+			go flusher(inputs, results)
+		} else {
+			close(results)
+		}
+
+	}()
+
+	for in := range inputs {
+
+		results <- in.first / in.second
+		atomic.AddUint64(&done, 1)
+	}
+
+}
+
+func workerWithQuit(quit <-chan int, inputs chan Input, results chan int) {
+
+	defer func() {
+
+		if r := recover(); r != nil {
+			fmt.Printf("recovering from panic: %v\n", r)
+			atomic.AddUint64(&errors, 1)
+			go workerWithQuit(quit, inputs, results)
+		}
+
+	}()
+
+	for {
+		select {
+		case in := <-inputs:
+			results <- in.first / in.second
+			atomic.AddUint64(&done, 1)
+		case <-quit:
+			close(inputs)
+			// flush the remaining tasks
+			go flusher(inputs, results)
+			return
+		}
+	}
+
+}
+
+func aggregator(results chan int, wg *sync.WaitGroup) {
+
+	index := 1
+	for res := range results {
+		fmt.Printf("[%d] output: %v\n", index, res)
+		index++
+	}
+	wg.Done()
+}
+
+func main() {
+
+	rand.Seed(time.Now().Unix())
+
+	testIns := []Input{}
+	for i := 0; i < 2000; i++ {
+		tmp := Input{
+			first:  rand.Intn(5),
+			second: rand.Intn(5),
+		}
+		testIns = append(testIns, tmp)
+	}
+
+	inputs := make(chan Input)
+	results := make(chan int, 5)
+	quit := make(chan int)
+
+	go workerWithQuit(quit, inputs, results)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go aggregator(results, &wg)
+
+	for _, tstin := range testIns {
+		inputs <- tstin
+		time.Sleep(time.Duration(rand.Intn(4)) * time.Second)
+	}
+	close(quit)
+
+	wg.Wait()
+
+	fmt.Printf("Number of errors: [%d]\nNumber of successfully done tasks:[%d]\n", errors, done)
+
+}
+```
