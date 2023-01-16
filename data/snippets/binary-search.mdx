@@ -1,0 +1,46 @@
+---
+title: 'Binary search'
+description: 'A single implementation of binary search algorithm using Go Generics'
+logo: '/static/images/snippets/Go-Logo.png'
+---
+
+```go
+package main
+
+import (
+	"fmt"
+
+	"golang.org/x/exp/constraints"
+)
+
+func bSearch[T constraints.Ordered](list []T, keyword T, low uint, high uint) int {
+
+	if low > high || int(high) > len(list)-1 {
+		return -1
+	}
+
+	mid := (low + high) / 2
+
+	if list[mid] == keyword {
+		return int(mid)
+	}
+
+	if list[mid] > keyword {
+		return bSearch(list, keyword, low, mid-1)
+	} else {
+		return bSearch(list, keyword, mid+1, high)
+	}
+
+}
+
+func BinarySearch[T constraints.Ordered](list []T, keyword T) int {
+	return bSearch(list, keyword, 0, uint(len(list)-1))
+}
+
+func main() {
+
+	a := []float32{-3, 3, 5, 6, 8, 10, 43, 57, 81}
+
+	fmt.Println(BinarySearch(a, 3))
+}
+```

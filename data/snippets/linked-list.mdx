@@ -1,0 +1,103 @@
+---
+title: 'Linked list'
+description: 'A single implementation of a linked list using Go Generics'
+logo: '/static/images/snippets/Go-Logo.png'
+---
+
+```go
+package main
+
+import "fmt"
+
+func NewList[T any](initialValue T) Node[T] {
+	return Node[T]{value: initialValue}
+}
+
+type Node[T any] struct {
+	value T
+	next  *Node[T]
+}
+
+// prints the children of a node in order
+func (n *Node[T]) Print(intr ...interface{}) {
+
+	intr = append(intr, n.value)
+
+	if n.next != nil {
+		n.next.Print(intr...)
+	} else {
+		s := fmt.Sprint(intr...)
+		fmt.Printf("%s\n", s)
+	}
+
+}
+
+// adds a node with value at the end of the list
+func (n *Node[T]) Add(value T) {
+
+	if n.next != nil {
+		n.next.Add(value)
+	} else {
+		next := Node[T]{value: value}
+		n.next = &next
+	}
+}
+
+// deletes the immediate child in the list
+func (n *Node[T]) Delete() {
+
+	if n.next != nil {
+		n.next = n.next.Next()
+	}
+}
+
+// adds a node with value at specified index
+func (n *Node[T]) AddAtIndex(value T, index uint) error {
+	if index == 0 {
+		next := Node[T]{value: value, next: n.next}
+		n.next = &next
+		return nil
+	} else if n.next != nil {
+		return n.next.AddAtIndex(value, index-1)
+	}
+	return fmt.Errorf("no in range")
+}
+
+func (n *Node[T]) Value() T {
+	return n.value
+}
+
+func (n *Node[T]) Index(i uint) (T, error) {
+	if i == 0 {
+		return n.value, nil
+	} else {
+		if n.next != nil {
+			return n.Next().Index(i - 1)
+		}
+		var noop T
+		return noop, fmt.Errorf("not in range")
+	}
+}
+
+func (n *Node[T]) Next() *Node[T] {
+	return n.next
+}
+
+func main() {
+	origin := NewList(10)
+
+	origin.Add(20)
+
+	child := origin.Next()
+
+	origin.Add(30)
+	child.Add(40)
+
+	origin.Print()
+
+	origin.AddAtIndex(10, 2)
+
+	origin.Print()
+
+}
+```
