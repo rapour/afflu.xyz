@@ -1,0 +1,240 @@
+package main
+
+import (
+	"fmt"
+
+	"golang.org/x/exp/constraints"
+)
+
+type Node[T constraints.Ordered] struct {
+	key        T
+	leftChild  *Node[T]
+	rightChild *Node[T]
+	parent     *Node[T]
+}
+
+func (n *Node[T]) HasLeft() bool   { return n.leftChild != nil }
+func (n *Node[T]) HasRight() bool  { return n.rightChild != nil }
+func (n *Node[T]) HasParent() bool { return n.parent != nil }
+
+func (n *Node[T]) Delete() {
+
+	if n.parent == nil {
+		return
+	}
+
+	if !n.HasLeft() && !n.HasRight() {
+		if n.parent.leftChild == n {
+			n.parent.leftChild = nil
+		} else {
+			n.parent.rightChild = nil
+		}
+
+	} else if n.HasLeft() && !n.HasRight() {
+		n.leftChild.Transplant(n)
+
+	} else if !n.HasLeft() && n.HasRight() {
+		n.rightChild.Transplant(n)
+
+	} else {
+
+		// has both childrens
+		minNode := n.Min()
+		minNode.Delete()
+		minNode.Transplant(n)
+
+	}
+}
+
+func (n *Node[T]) Transplant(original *Node[T]) {
+
+	if original == nil {
+		return
+	}
+
+	n.parent = original.parent
+	n.leftChild = original.leftChild
+	n.rightChild = original.rightChild
+
+	if n.HasParent() {
+		if original.parent.leftChild == original {
+			original.parent.leftChild = n
+		} else {
+			original.parent.rightChild = n
+		}
+	}
+
+	if n.HasLeft() {
+		n.leftChild.parent = n
+	}
+
+	if n.HasRight() {
+		n.rightChild.parent = n
+	}
+}
+
+func (n *Node[T]) Min() *Node[T] {
+	if n.HasLeft() {
+		return n.leftChild.Min()
+	}
+	return n
+}
+
+func (n *Node[T]) Max() *Node[T] {
+	if n.HasRight() {
+		return n.rightChild.Max()
+	}
+	return n
+}
+
+func (n *Node[T]) Search(value T) *Node[T] {
+	if n.key == value {
+		return n
+	} else if n.key < value {
+		if n.HasRight() {
+			return n.rightChild.Search(value)
+		} else {
+			return nil
+		}
+	} else {
+		if n.HasLeft() {
+			return n.leftChild.Search(value)
+		} else {
+			return nil
+		}
+	}
+}
+
+func (n *Node[T]) Insert(node *Node[T]) {
+	if n.key < node.key {
+		if n.HasRight() {
+			n.rightChild.Insert(node)
+		} else {
+			n.rightChild = node
+			node.parent = n
+		}
+	} else {
+		if n.HasLeft() {
+			n.leftChild.Insert(node)
+		} else {
+			n.leftChild = node
+			node.parent = n
+		}
+	}
+}
+
+func (n *Node[T]) InOrderWalk(root string) string {
+
+	if n.HasLeft() {
+		root = n.leftChild.InOrderWalk(root)
+	}
+	root = fmt.Sprintf("%s %v", root, n.key)
+	if n.HasRight() {
+		root = n.rightChild.InOrderWalk(root)
+	}
+	return root
+}
+
+func (n *Node[T]) traversePreOrder(root string, padding string, pointer string, hasRightSibling bool) string {
+
+	str := fmt.Sprintf("%s%s%s%v\n", root, padding, pointer, n.key)
+
+	if !n.HasRight() && !n.HasLeft() {
+		return str
+	}
+
+	var paddingForBoth string
+	if paddingForBoth = fmt.Sprintf("%s%s", padding, "   "); hasRightSibling {
+		paddingForBoth = fmt.Sprintf("%s%s", padding, "│  ")
+	}
+
+	pointerForRight := "└──"
+	var pointerForLeft string
+	if pointerForLeft = "├──"; !n.HasRight() {
+		pointerForLeft = "└──"
+	}
+
+	if n.HasLeft() {
+		str = n.leftChild.traversePreOrder(str, paddingForBoth, pointerForLeft, n.HasRight())
+	} else {
+		str = fmt.Sprintf("%s%s%s%v\n", str, paddingForBoth, pointerForLeft, "*")
+	}
+	if n.HasRight() {
+		str = n.rightChild.traversePreOrder(str, paddingForBoth, pointerForRight, false)
+	} else {
+		str = fmt.Sprintf("%s%s%s%v\n", str, paddingForBoth, pointerForRight, "*")
+	}
+
+	return str
+}
+
+type BST[T constraints.Ordered] struct {
+	root *Node[T]
+}
+
+func NewBST[T constraints.Ordered](value T) *BST[T] {
+	return &BST[T]{root: &Node[T]{key: value}}
+}
+
+func (bst *BST[T]) Insert(value T) {
+
+	newNode := &Node[T]{key: value}
+	if bst.root == nil {
+		bst.root = newNode
+		return
+	}
+	bst.root.Insert(newNode)
+}
+
+func (bst *BST[T]) InOrderTreeWalk() {
+	fmt.Println(bst.root.InOrderWalk(""))
+}
+
+func (bst *BST[T]) Search(value T) {
+	if r := bst.root.Search(value); r != nil {
+		fmt.Println(r.traversePreOrder("", "", "", false))
+	} else {
+		fmt.Println("element not found")
+	}
+}
+
+func (bst *BST[T]) Print() {
+	fmt.Println(bst.root.traversePreOrder("", "", "", false))
+}
+
+func (bst *BST[T]) Min() {
+	fmt.Printf("min of the BST is: %v\n", bst.root.Min().key)
+}
+
+func (bst *BST[T]) Max() {
+	fmt.Printf("max of the BST is: %v\n", bst.root.Max().key)
+}
+
+func (bst *BST[T]) Delete(value T) {
+	if node := bst.root.Search(value); node != nil {
+		node.Delete()
+	}
+}
+
+func main() {
+	tree := NewBST(10)
+
+	tree.Insert(5)
+	tree.Insert(8)
+	tree.Insert(12)
+	tree.Insert(2)
+	tree.Insert(3)
+	tree.Insert(45)
+
+	tree.Print()
+	tree.InOrderTreeWalk()
+	tree.Min()
+	tree.Max()
+
+	tree.Search(12)
+	tree.Search(13)
+
+	tree.Delete(2)
+	tree.Print()
+	tree.InOrderTreeWalk()
+}
