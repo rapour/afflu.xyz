@@ -1,0 +1,120 @@
+---
+title: 'Heap structure'
+description: 'A simple implementation of heap structure using generics'
+logo: '/static/images/snippets/Go-Logo.png'
+---
+
+
+```go
+package main
+
+import (
+	"fmt"
+
+	"golang.org/x/exp/constraints"
+)
+
+func NewHeap[T constraints.Ordered](arr []T) Heap[T] {
+	return Heap[T]{arr: arr}
+}
+
+type Heap[T constraints.Ordered] struct {
+	arr []T
+}
+
+func (h *Heap[T]) GetSize() int {
+	return len(h.arr)
+}
+
+func (h *Heap[T]) Left(i uint) int {
+
+	return 2*int(i) + 1
+}
+
+func (h *Heap[T]) Right(i uint) int {
+
+	return 2*int(i) + 2
+}
+
+func (h *Heap[T]) Parent(i uint) int {
+
+	if int(i) > h.GetSize()-1 {
+		return -1
+	}
+	return (int(i+1) / 2) - 1
+}
+
+func (h *Heap[T]) MaxHeapify(i uint) {
+	left := h.Left(i)
+	right := h.Right(i)
+
+	largest := h.arr[i]
+	largestIndx := i
+
+	if left < h.GetSize() && h.arr[left] > largest {
+		largest = h.arr[left]
+		largestIndx = uint(left)
+	}
+
+	if right < h.GetSize() && h.arr[right] > largest {
+		largest = h.arr[right]
+		largestIndx = uint(right)
+	}
+
+	if largestIndx != i {
+		h.arr[i], h.arr[largestIndx] = largest, h.arr[i]
+		h.MaxHeapify(largestIndx)
+	}
+}
+
+func (h *Heap[T]) BuildMaxHeap() {
+	lastNodeIndx := h.GetSize() - 1
+
+	for i := lastNodeIndx; i >= 0; i-- {
+		h.MaxHeapify(uint(i))
+	}
+}
+
+func (h *Heap[T]) traversePreOrder(root string, padding string, pointer string, hasRightSibling bool, node uint) string {
+
+	if int(node) > h.GetSize()-1 {
+		return root
+	}
+
+	hasRight := h.Right(uint(node)) <= h.GetSize()-1
+
+	str := fmt.Sprintf("%s%s%s%v\n", root, padding, pointer, h.arr[node])
+
+	var paddingForBoth string
+	if paddingForBoth = fmt.Sprintf("%s%s", padding, "   "); hasRightSibling {
+		paddingForBoth = fmt.Sprintf("%s%s", padding, "│  ")
+	}
+
+	pointerForRight := "└──"
+	var pointerForLeft string
+	if pointerForLeft = "├──"; !hasRight {
+		pointerForLeft = "└──"
+	}
+	strLeft := h.traversePreOrder(str, paddingForBoth, pointerForLeft, hasRight, uint(h.Left(node)))
+	return h.traversePreOrder(strLeft, paddingForBoth, pointerForRight, false, uint(h.Right(node)))
+}
+
+func (h *Heap[T]) PrintFromNode(i uint) {
+	fmt.Print(h.traversePreOrder("", "", "", false, i))
+}
+
+func (h *Heap[T]) Print() {
+	h.PrintFromNode(0)
+}
+
+func main() {
+
+	a := []int{10, 1, 23, 43, 12, 1, 34, 100, 34, 54, 243, 54, 32, 2, 4, 5, 502, 400, 324, 234, 456}
+
+	heap := NewHeap(a)
+
+	heap.BuildMaxHeap()
+
+	heap.Print()
+}
+```
