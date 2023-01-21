@@ -1,3 +1,10 @@
+---
+title: 'Binary search Tree'
+description: 'A simple implementation of binary search tree data structure using Go Generics'
+logo: '/static/images/snippets/Go-Logo.png'
+---
+
+```go
 package main
 
 import (
@@ -53,24 +60,15 @@ func (n *Node[T]) Transplant(original *Node[T]) {
 	}
 
 	n.parent = original.parent
-	n.leftChild = original.leftChild
-	n.rightChild = original.rightChild
 
-	if n.HasParent() {
+	if original.HasParent() {
 		if original.parent.leftChild == original {
-			original.parent.leftChild = n
+			n.parent.leftChild = n
 		} else {
-			original.parent.rightChild = n
+			n.parent.rightChild = n
 		}
 	}
-
-	if n.HasLeft() {
-		n.leftChild.parent = n
-	}
-
-	if n.HasRight() {
-		n.rightChild.parent = n
-	}
+	*original = *n
 }
 
 func (n *Node[T]) Min() *Node[T] {
@@ -217,6 +215,7 @@ func (bst *BST[T]) Delete(value T) {
 }
 
 func main() {
+
 	tree := NewBST(10)
 
 	tree.Insert(5)
@@ -234,7 +233,9 @@ func main() {
 	tree.Search(12)
 	tree.Search(13)
 
-	tree.Delete(2)
-	tree.Print()
+	tree.Delete(12)
 	tree.InOrderTreeWalk()
+	tree.Print()
+
 }
+```
