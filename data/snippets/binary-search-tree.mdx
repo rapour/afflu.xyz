@@ -46,9 +46,28 @@ func (n *Node[T]) Delete() {
 	} else {
 
 		// has both childrens
-		minNode := n.Min()
+		if n.rightChild.leftChild == nil {
+			n.leftChild.parent = n.rightChild
+			n.rightChild.leftChild = n.leftChild
+			n.rightChild.Transplant(n)
+			return
+		}
+
+		minNode := n.rightChild.Min()
+		minCopy := *minNode
 		minNode.Delete()
-		minNode.Transplant(n)
+
+		minCopy.leftChild = n.leftChild
+		minCopy.rightChild = n.rightChild
+
+		n.leftChild.parent = &minCopy
+		n.rightChild.parent = &minCopy
+
+		if n.parent.leftChild == n {
+			n.parent.leftChild = &minCopy
+		} else {
+			n.parent.rightChild = &minCopy
+		}
 
 	}
 }
@@ -224,6 +243,8 @@ func main() {
 	tree.Insert(2)
 	tree.Insert(3)
 	tree.Insert(45)
+	tree.Insert(11)
+	tree.Insert(20)
 
 	tree.Print()
 	tree.InOrderTreeWalk()
@@ -237,5 +258,8 @@ func main() {
 	tree.InOrderTreeWalk()
 	tree.Print()
 
+	tree.Delete(5)
+	tree.InOrderTreeWalk()
+	tree.Print()
 }
 ```
