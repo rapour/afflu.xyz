@@ -1,0 +1,80 @@
+---
+title: 'Quick sort'
+description: 'A simple implementation of quick sort algorithm in Go'
+logo: '/static/images/snippets/Go-Logo.png'
+---
+
+
+```go
+package main
+
+import (
+	"fmt"
+	"math/rand"
+	"time"
+
+	"golang.org/x/exp/constraints"
+)
+
+// O(nlogn) Expected
+func QuickSort[T constraints.Ordered](list []T, start int, end int) {
+
+	if start < 0 || end <= start || int(end) >= len(list) {
+		return
+	}
+	last := list[end]
+
+	// partition
+	pointer := start
+	for j := start; j < end; j++ {
+		if list[j] < last {
+			list[j], list[pointer] = list[pointer], list[j]
+			pointer++
+		}
+	}
+	list[end], list[pointer] = list[pointer], list[end]
+
+	QuickSort(list, start, pointer-1)
+	QuickSort(list, pointer+1, end)
+
+}
+
+// O(nlogn) Expected
+func RandomizedQuickSort[T constraints.Ordered](list []T, start int, end int) {
+
+	if start < 0 || end <= start || int(end) >= len(list) {
+		return
+	}
+
+	rndIndex := start + rand.Intn(end-start+1)
+	list[end], list[rndIndex] = list[rndIndex], list[end]
+
+	// partition
+	pointer := start
+	for j := start; j < end; j++ {
+		if list[j] < list[end] {
+			list[j], list[pointer] = list[pointer], list[j]
+			pointer++
+		}
+	}
+	list[end], list[pointer] = list[pointer], list[end]
+
+	QuickSort(list, start, pointer-1)
+	QuickSort(list, pointer+1, end)
+
+}
+
+func main() {
+
+	rand.Seed(time.Now().Unix())
+
+	list := []int{1, 10, 15, -5, 3, -10, 3, 12, 2, 30, 0}
+
+	QuickSort(list, 0, len(list)-1)
+	fmt.Println(list)
+
+	RandomizedQuickSort(list, 0, len(list)-1)
+	fmt.Println(list)
+}
+
+```
