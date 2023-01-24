@@ -1,0 +1,218 @@
+---
+title: 'Matrix-based BFS'
+description: 'A simple implementation of BFS based on matrix representation of graphs'
+logo: '/static/images/snippets/Go-Logo.png'
+---
+
+```go
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"io"
+	"strconv"
+	"strings"
+)
+
+func NewMatrix[T any](size uint, initialValue T) [][]T {
+	m := make([][]T, size)
+	s := int(size)
+	for i := 0; i < s; i++ {
+		for j := 0; j < s; j++ {
+			m[i] = append(m[i], initialValue)
+		}
+	}
+	return m
+}
+
+type UndirectedGraph struct {
+	size   int
+	matrix [][]bool
+}
+
+func (ug *UndirectedGraph) AddLink(link []int32) {
+
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("unable to add link [%v]: %v\n", link, r)
+		}
+	}()
+
+	ug.matrix[link[0]-1][link[1]-1] = true
+	ug.matrix[link[1]-1][link[0]-1] = true
+}
+
+func (ug *UndirectedGraph) AddBatchLink(links [][]int32) {
+	for _, link := range links {
+		ug.AddLink(link)
+	}
+}
+
+func (ug *UndirectedGraph) Print() {
+	for _, row := range ug.matrix {
+		fmt.Println(row)
+	}
+}
+
+func (ug *UndirectedGraph) HasLink(i, j int) bool {
+
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("unable to locate nodes [%d] and [%d] on size [%d] graph: %v\n", i, j, ug.size, r)
+		}
+	}()
+
+	return ug.matrix[i][j]
+}
+
+func (ug *UndirectedGraph) Invert() {
+	for i := 0; i < ug.size; i++ {
+		for j := 0; j < ug.size; j++ {
+			if i != j {
+				ug.matrix[i][j] = !ug.matrix[i][j]
+			}
+		}
+	}
+}
+
+type Node struct {
+	index    int
+	distance int
+	color    string
+	gateway  *Node
+}
+
+func (ug *UndirectedGraph) BFS(zero uint) []int {
+
+	z := int(zero) - 1
+	if z > ug.size {
+		return nil
+	}
+
+	graphNodes := []Node{}
+	for i := 0; i < ug.size; i++ {
+		if i == z {
+			graphNodes = append(graphNodes, Node{index: i, distance: 0, color: "grey", gateway: nil})
+			continue
+		}
+		graphNodes = append(graphNodes, Node{index: i, distance: 0, gateway: nil, color: "white"})
+	}
+
+	queue := make(chan Node, ug.size)
+	queue <- graphNodes[z]
+
+	loop := true
+	for loop {
+		select {
+		case n := <-queue:
+
+			for i := 0; i < ug.size; i++ {
+				if ug.HasLink(n.index, i) {
+					if graphNodes[i].color == "white" {
+						graphNodes[i].color = "grey"
+						graphNodes[i].distance = n.distance + 1
+						graphNodes[i].gateway = &n
+						queue <- graphNodes[i]
+					}
+
+				}
+			}
+			n.color = "black"
+
+		default:
+			loop = false
+		}
+	}
+
+	var distances []int
+	for _, g := range graphNodes {
+
+		if g.index == z {
+			continue
+		}
+
+		distances = append(distances, g.distance)
+	}
+
+	return distances
+}
+
+func NewGraph(size uint) *UndirectedGraph {
+
+	m := NewMatrix(size, false)
+
+	return &UndirectedGraph{size: int(size), matrix: m}
+}
+
+func main() {
+
+	// first line contains the number of nodes N space seperated from the number of links M between nodes
+	// the M subsequent lines with the x y format each describe a link from node x to y
+	// the last line is the source from which we want to compute the BFS  
+	input := `4 3
+1 2
+2 3
+1 4
+1`
+
+	r := strings.NewReader(input)
+	reader := bufio.NewReaderSize(r, 1024*1024)
+
+	nm := strings.Split(readLine(reader), " ")
+
+	nTemp, err := strconv.ParseInt(nm[0], 10, 64)
+	if err != nil {
+		panic(err)
+	}
+	n := int32(nTemp)
+
+	mTemp, err := strconv.ParseInt(nm[1], 10, 64)
+	if err != nil {
+		panic(err)
+	}
+	m := int32(mTemp)
+
+	var links [][]int32
+	for linksRowItr := 0; linksRowItr < int(m); linksRowItr++ {
+		linksRowTemp := strings.Split(readLine(reader), " ")
+
+		var linksRow []int32
+		for _, linksRowItem := range linksRowTemp {
+			linksItemTemp, err := strconv.ParseInt(linksRowItem, 10, 64)
+			if err != nil {
+				panic(err)
+			}
+			linksItem := int32(linksItemTemp)
+			linksRow = append(linksRow, linksItem)
+		}
+
+		if len(linksRow) != int(2) {
+			panic("Bad input")
+		}
+
+		links = append(links, linksRow)
+	}
+
+	g := NewGraph(uint(n))
+	g.AddBatchLink(links)
+	g.Invert()
+
+	sTemp, err := strconv.ParseInt(readLine(reader), 10, 64)
+	if err != nil {
+		panic(err)
+	}
+	s := int32(sTemp)
+
+	fmt.Println(g.BFS(uint(s)))
+}
+
+func readLine(reader *bufio.Reader) string {
+	str, _, err := reader.ReadLine()
+	if err == io.EOF {
+		return ""
+	}
+
+	return strings.TrimRight(string(str), "\r\n")
+}
+```
