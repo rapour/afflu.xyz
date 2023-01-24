@@ -1,0 +1,68 @@
+---
+title: 'Counting sort'
+description: 'A sorting algorithm for when entries are bounded integers'
+logo: '/static/images/snippets/Go-Logo.png'
+---
+
+
+```go
+package main
+
+import (
+	"fmt"
+	"math/rand"
+	"time"
+)
+
+func CountingSort(list []int, min int, max int) ([]int, error) {
+
+	if max < min {
+		return nil, fmt.Errorf("range is not valid")
+	}
+
+	if max == min {
+		return list, nil
+	}
+
+	offset := min
+	length := (max - min + 1)
+	counts := make([]int, length)
+	for _, elm := range list {
+		counts[elm-offset]++
+	}
+
+	for i := 1; i < length; i++ {
+		counts[i] = counts[i] + counts[i-1]
+	}
+
+	var res []int = make([]int, len(list))
+	for j := len(list) - 1; j >= 0; j-- {
+		res[counts[list[j]-offset]-1] = list[j]
+		counts[list[j]-offset]--
+	}
+
+	return res, nil
+}
+
+func init() {
+	rand.Seed(time.Now().Unix())
+}
+
+func main() {
+
+	min, max := -3, 15
+	length := 10
+	var list []int
+	for j := 0; j < length; j++ {
+		list = append(list, rand.Intn(max-min+1)+min)
+	}
+	fmt.Println(list)
+
+	// O(n)
+	result, err := CountingSort(list, min, max)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(result)
+}
+```
