@@ -20,7 +20,7 @@ services:
         - ./out/cassandra_data:/var/lib/cassandra
  
   # access client with the following command: 
-  # docker exec -it client bash
+  # docker exec -it client bash -c "cqlsh cassandra"
   client: 
       image: cassandra:latest
       container_name: client
