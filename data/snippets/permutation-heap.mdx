@@ -1,0 +1,83 @@
+---
+title: 'Heap's Permutation'
+description: 'Heap's Permutation algorithm written in Generator pattern'
+logo: '/static/images/snippets/Go-Logo.png'
+---
+
+
+```go
+package main
+
+import "fmt"
+
+type Heap[T any] struct {
+	arr     []T
+	pointer int
+	stack   []int
+}
+
+func (h *Heap[T]) Next() bool {
+
+	for {
+		// if pointer reaches to end of stack, there is no new permutations to generate
+		if h.pointer >= len(h.arr) {
+			return false
+		}
+
+		if h.stack[h.pointer] < h.pointer {
+
+			if h.pointer%2 == 0 {
+				h.arr[0], h.arr[h.pointer] = h.arr[h.pointer], h.arr[0]
+			} else {
+				h.arr[h.stack[h.pointer]], h.arr[h.pointer] = h.arr[h.pointer], h.arr[h.stack[h.pointer]]
+			}
+
+			h.stack[h.pointer]++
+			h.pointer = 1
+
+			return true
+		} else {
+
+			h.stack[h.pointer] = 0
+			h.pointer++
+
+		}
+	}
+
+}
+
+func (h *Heap[T]) Current() []T {
+	return h.arr
+}
+
+func NewHeap[T any](arr []T) Heap[T] {
+
+	s := []int{}
+	for i := 0; i < len(arr); i++ {
+		s = append(s, 0)
+	}
+
+	return Heap[T]{
+		arr:     arr,
+		pointer: 1,
+		stack:   s,
+	}
+}
+
+func main() {
+
+	list := []int{1, 2, 3}
+
+	h := NewHeap(list)
+
+	i := 1
+	for {
+		fmt.Printf("%d) %d\n", i, h.Current())
+		if !h.Next() {
+			break
+		}
+		i++
+	}
+
+}
+```
