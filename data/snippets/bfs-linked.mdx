@@ -1,0 +1,179 @@
+---
+title: 'Linked list BFS'
+description: 'A simple implementation of BFS based on linked list representation of graphs'
+logo: '/static/images/snippets/Go-Logo.png'
+---
+
+```go
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"io"
+	"strconv"
+	"strings"
+)
+
+type NodeColor int
+
+const (
+	White NodeColor = iota
+	Grey
+	Black
+)
+
+type Node struct {
+	color    NodeColor
+	distance int
+	pi       *Node
+}
+
+func (n *Node) Reset() {
+	n.color = White
+	n.distance = -1
+	n.pi = nil
+}
+
+type UGraph struct {
+	nodes []*Node
+	links map[*Node][]*Node
+}
+
+func (g *UGraph) Reset() {
+	for _, n := range g.nodes {
+		n.Reset()
+	}
+}
+
+func NewGraph(size int32) *UGraph {
+	var nodes []*Node
+	var i int32
+	for i = 0; i < size; i++ {
+		nodes = append(nodes, &Node{})
+	}
+
+	return &UGraph{
+		nodes: nodes,
+		links: make(map[*Node][]*Node),
+	}
+}
+
+func (g *UGraph) AddLink(link []int32) {
+	g.links[g.nodes[link[0]-1]] = append(g.links[g.nodes[link[0]-1]], g.nodes[link[1]-1])
+	g.links[g.nodes[link[1]-1]] = append(g.links[g.nodes[link[1]-1]], g.nodes[link[0]-1])
+}
+
+func (g *UGraph) AddBatchLink(links [][]int32) {
+	for _, link := range links {
+		g.AddLink(link)
+	}
+}
+
+func (g *UGraph) BFS(source int32) {
+	g.Reset()
+
+	queue := make(chan *Node, len(g.nodes))
+
+	src := g.nodes[source-1]
+	src.color = Grey
+	src.distance = 0
+
+	queue <- src
+
+	loop := true
+	for loop {
+
+		select {
+		case n := <-queue:
+			for _, neighbor := range g.links[n] {
+				if neighbor.color == White {
+					neighbor.color = Grey
+					neighbor.distance = n.distance + 1
+					neighbor.pi = n
+					queue <- neighbor
+				}
+			}
+			n.color = Black
+
+		default:
+			loop = false
+		}
+
+	}
+}
+
+func main() {
+	// first line contains the number of nodes N space seperated from the number of links M between nodes
+	// the M subsequent lines with the x y format each describe a link from node x to y
+	// the last line is the source from which we want to compute the BFS
+	input := `4 3
+1 2
+2 3
+1 4
+1`
+
+	r := strings.NewReader(input)
+	reader := bufio.NewReaderSize(r, 1024*1024)
+
+	nm := strings.Split(readLine(reader), " ")
+
+	nTemp, err := strconv.ParseInt(nm[0], 10, 64)
+	if err != nil {
+		panic(err)
+	}
+	n := int32(nTemp)
+
+	mTemp, err := strconv.ParseInt(nm[1], 10, 64)
+	if err != nil {
+		panic(err)
+	}
+	m := int32(mTemp)
+
+	var links [][]int32
+	for linksRowItr := 0; linksRowItr < int(m); linksRowItr++ {
+		linksRowTemp := strings.Split(readLine(reader), " ")
+
+		var linksRow []int32
+		for _, linksRowItem := range linksRowTemp {
+			linksItemTemp, err := strconv.ParseInt(linksRowItem, 10, 64)
+			if err != nil {
+				panic(err)
+			}
+			linksItem := int32(linksItemTemp)
+			linksRow = append(linksRow, linksItem)
+		}
+
+		if len(linksRow) != int(2) {
+			panic("Bad input")
+		}
+
+		links = append(links, linksRow)
+	}
+
+	sTemp, err := strconv.ParseInt(readLine(reader), 10, 64)
+	if err != nil {
+		panic(err)
+	}
+	s := int32(sTemp)
+
+	grph := NewGraph(n)
+	grph.AddBatchLink(links)
+	grph.BFS(s)
+
+	for i, n := range grph.nodes {
+		fmt.Printf("node %d: %d\n", i, n.distance)
+	}
+
+}
+
+func readLine(reader *bufio.Reader) string {
+	str, _, err := reader.ReadLine()
+	if err == io.EOF {
+		return ""
+	}
+
+	return strings.TrimRight(string(str), "\r\n")
+}
+
+```
