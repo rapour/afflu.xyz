@@ -1,0 +1,191 @@
+---
+title: "Kruskal's algorithm for MST"
+description: "A simple implementation of minimum spanning tree based on Kruskal's algorithm"
+logo: '/static/images/snippets/Go-Logo.png'
+---
+
+```go
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"io"
+	"sort"
+	"strconv"
+	"strings"
+)
+
+// links are treated seperately from nodes, which is consistent
+// with what we need to compute Kruskal's algorithm. Other graph-based
+// might need a certain implementation where links are perceived as
+// something like map[*Node][]*Node
+type Link struct {
+	src    int
+	dst    int
+	weight int
+}
+
+// father is used to show set membership. Different nodes are
+// members of a same set if they have identical fathers.
+type Node struct {
+	index  int
+	father *Node
+}
+
+func (n *Node) FindSet() *Node {
+	if n.father == nil {
+		return n
+	}
+	return n.father.FindSet()
+}
+
+// sets represented by two nodes n and dst are unified into one set
+// by assigning the same father to their prevoius fathers.
+func (n *Node) Union(dst *Node) {
+	f := Node{index: -1}
+	n.FindSet().father = &f
+	dst.FindSet().father = &f
+}
+
+type WeightedUndirectedGraph struct {
+	nodes []Node
+	links []Link
+}
+
+// we need to sort the links of the graph based on their weight to
+// compue Kruskal's algorithm. We have implemented sort.Interface
+// for the graph and then used "sort" package to do so.
+func (wug *WeightedUndirectedGraph) Len() int {
+	return len(wug.links)
+}
+
+func (wug *WeightedUndirectedGraph) Swap(i, j int) {
+	wug.links[i], wug.links[j] = wug.links[j], wug.links[i]
+}
+
+func (wug *WeightedUndirectedGraph) Less(i, j int) bool {
+	return wug.links[i].weight < wug.links[j].weight
+}
+
+
+
+func (wug *WeightedUndirectedGraph) AddLink(link []int) {
+	wug.links = append(wug.links, Link{src: link[0], dst: link[1], weight: link[2]})
+	wug.links = append(wug.links, Link{src: link[1], dst: link[0], weight: link[2]})
+}
+
+func (wug *WeightedUndirectedGraph) AddBatchLink(links [][]int) {
+	for _, link := range links {
+		wug.AddLink(link)
+	}
+}
+
+
+func (wug *WeightedUndirectedGraph) Kruskal() []Link {
+	sort.Sort(wug)
+
+	var MinimumSpanningTree []Link
+	for _, link := range wug.links {
+		if link.src <= link.dst {
+			if wug.nodes[link.src].FindSet() != wug.nodes[link.dst].FindSet() {
+				MinimumSpanningTree = append(MinimumSpanningTree, link)
+				wug.nodes[link.src].Union(&wug.nodes[link.dst])
+			}
+		}
+	}
+	return MinimumSpanningTree
+}
+
+func (wug *WeightedUndirectedGraph) Print() {
+
+	for _, link := range wug.links {
+		if link.src <= link.dst {
+			fmt.Printf("%d - %d : %d\n", link.src, link.dst, link.weight)
+		}
+	}
+
+}
+
+func NewGraph(size int) *WeightedUndirectedGraph {
+
+	var nodes []Node
+	for i := 0; i < size; i++ {
+		nodes = append(nodes, Node{index: i})
+	}
+
+	return &WeightedUndirectedGraph{
+		nodes: nodes,
+	}
+}
+
+func main() {
+
+	// first line contains the number of nodes N
+	// the M subsequent lines with the x y w format each describe a link from node x to y with weight w
+	input := `9
+0 1 4
+0 2 8
+1 2 11
+2 3 7
+1 4 8
+2 5 1
+3 4 2
+3 5 6
+4 6 7
+4 7 4
+5 7 2
+6 7 14
+6 8 9
+7 8 10`
+
+	r := strings.NewReader(input)
+
+	reader := bufio.NewReaderSize(r, 1024*1024)
+
+	nTmp, err := ReadLine(reader)
+	if err != nil {
+		panic(err)
+	}
+
+	n, err := strconv.Atoi(nTmp)
+	if err != nil {
+		panic(err)
+	}
+
+	var links [][]int
+	for {
+
+		line, err := ReadLine(reader)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			panic(fmt.Sprintf("%s \n %v", line, err))
+		}
+
+		lineTmp := strings.Split(line, " ")
+
+		var link []int
+		for _, itemTmp := range lineTmp {
+			item, err := strconv.Atoi(itemTmp)
+			if err != nil {
+				panic(fmt.Sprintf("%s \n %v", itemTmp, err))
+			}
+			link = append(link, item)
+		}
+		links = append(links, link)
+	}
+
+	grph := NewGraph(n)
+	grph.AddBatchLink(links)
+	grph.Print()
+	fmt.Println(grph.Kruskal())
+}
+
+func ReadLine(r *bufio.Reader) (string, error) {
+	line, _, err := r.ReadLine()
+
+	return string(line), err
+}
+```
