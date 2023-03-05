@@ -1,0 +1,246 @@
+---
+title: "Dijkstra's algorithm"
+description: "A simple implementation of single-source shortest path using Dijkstra's algorithm"
+logo: '/static/images/snippets/Go-Logo.png'
+---
+
+```go
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"io"
+	"math"
+	"strconv"
+	"strings"
+)
+
+type Node struct {
+	index    int
+	pi       *Node
+	distance int
+}
+
+func (n *Node) Value() int {
+	return n.distance
+}
+
+func (n *Node) Index() int {
+	return n.index
+}
+
+type Link struct {
+	dst    int
+	weight int
+}
+
+type WeightedDirectedGraph struct {
+	nodes []Node
+	links map[int][]Link
+}
+
+func (wdg *WeightedDirectedGraph) AddLink(link []int) {
+	wdg.links[link[0]] = append(wdg.links[link[0]], Link{dst: link[1], weight: link[2]})
+}
+
+func (wdg *WeightedDirectedGraph) AddBatchLink(links [][]int) {
+	for _, link := range links {
+		wdg.AddLink(link)
+	}
+}
+
+func (wdg *WeightedDirectedGraph) Dijkstra(src int) {
+
+	wdg.nodes[src].distance = 0
+
+	var nds []Element
+	for i := 0; i < len(wdg.nodes); i++ {
+		nds = append(nds, &wdg.nodes[i])
+	}
+
+	queue := NewHeap(nds)
+
+	for queue.Size() > 0 {
+		queue.MinHeapify(0)
+		current := queue.ExtractMin()
+
+		for _, link := range wdg.links[current.Index()] {
+			if wdg.nodes[link.dst].distance > wdg.nodes[current.Index()].distance+link.weight {
+				wdg.nodes[link.dst].distance = wdg.nodes[current.Index()].distance + link.weight
+				wdg.nodes[link.dst].pi = &wdg.nodes[current.Index()]
+			}
+		}
+	}
+
+	for _, nd := range wdg.nodes {
+		var s strings.Builder
+		s.WriteString(fmt.Sprintf("The path from %d is: ", nd.index))
+
+		current := &nd
+		for {
+			if current.pi == nil {
+				break
+			}
+			s.WriteString(fmt.Sprintf("%d ", current.pi.index))
+			current = current.pi
+		}
+		fmt.Println(s.String())
+
+	}
+
+}
+
+func NewGraph(size int) *WeightedDirectedGraph {
+	var nodes []Node
+	for i := 0; i < size; i++ {
+		nodes = append(nodes, Node{index: i, distance: math.MaxInt, pi: nil})
+	}
+
+	return &WeightedDirectedGraph{
+		nodes: nodes,
+		links: make(map[int][]Link),
+	}
+}
+
+type Element interface {
+	Value() int
+	Index() int
+}
+
+type Heap struct {
+	arr []Element
+}
+
+func NewHeap(arr []Element) *Heap {
+	heap := Heap{arr: arr}
+	heap.BuildMinHeap()
+
+	return &heap
+}
+
+func (h *Heap) Left(i int) int {
+	return 2*i + 1
+}
+
+func (h *Heap) Right(i int) int {
+	return 2*i + 2
+}
+
+func (h *Heap) Size() int {
+	return len(h.arr)
+}
+
+func (h *Heap) BuildMinHeap() {
+	for i := h.Size() - 1; i >= 0; i-- {
+		h.MinHeapify(i)
+	}
+}
+
+func (h *Heap) ExtractMin() Element {
+	if h.Size() == 0 {
+		return nil
+	}
+
+	min := h.arr[0]
+	last := h.arr[h.Size()-1]
+
+	h.arr = h.arr[:h.Size()-1]
+
+	if min == last {
+		return min
+	}
+
+	h.arr[0] = last
+	h.MinHeapify(0)
+
+	return min
+}
+
+func (h *Heap) MinHeapify(indx int) {
+	smallest := h.arr[indx].Value()
+	smallestIndx := indx
+
+	leftIndx := h.Left(indx)
+	rightIndx := h.Right(indx)
+
+	if leftIndx < h.Size() && h.arr[leftIndx].Value() < smallest {
+		smallest = h.arr[leftIndx].Value()
+		smallestIndx = leftIndx
+	}
+
+	if rightIndx < h.Size() && h.arr[rightIndx].Value() < smallest {
+		smallestIndx = rightIndx
+	}
+
+	if smallestIndx != indx {
+		h.arr[indx], h.arr[smallestIndx] = h.arr[smallestIndx], h.arr[indx]
+		h.MinHeapify(smallestIndx)
+	}
+
+}
+
+func main() {
+
+	// first line contains the number of nodes N
+	// the M subsequent lines with the x y w format each describe a link from node x to y with weight w
+	input := `5
+0 1 10
+1 3 1
+0 2 5
+1 2 2
+2 1 3
+2 4 2
+4 0 7
+3 4 4
+4 3 6
+2 3 9`
+
+	sr := strings.NewReader(input)
+
+	reader := bufio.NewReaderSize(sr, 1024)
+
+	sizeTmp, err := ReadLine(reader)
+	CheckErr(err)
+
+	size, err := strconv.Atoi(sizeTmp)
+	CheckErr(err)
+
+	var links [][]int
+	for {
+		linkTmpStr, err := ReadLine(reader)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			panic(err)
+		}
+		linkTmp := strings.Split(linkTmpStr, " ")
+
+		var link []int
+		for _, itemStr := range linkTmp {
+			item, err := strconv.Atoi(itemStr)
+			CheckErr(err)
+
+			link = append(link, item)
+		}
+		links = append(links, link)
+	}
+
+	grph := NewGraph(size)
+	grph.AddBatchLink(links)
+	grph.Dijkstra(0)
+}
+
+func ReadLine(r *bufio.Reader) (string, error) {
+	line, _, err := r.ReadLine()
+
+	return string(line), err
+}
+
+func CheckErr(e error) {
+	if e != nil {
+		panic(e)
+	}
+}
+```
