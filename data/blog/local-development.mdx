@@ -1,0 +1,339 @@
+---
+title: 'A simple local development environment'
+date: '2022-12-16'
+excerpt: 'With a complete CI/CD pipeline'
+coverImage: '/static/images/fonts/banner.png'
+---
+
+## Preface
+
+The Modern DevOps methodologies concentrate on being **seamlessly reproducible** and **declarative**. The intention is to go through the application development once and be able to run the same application in various environments without the need to do additional work such as installing dependencies.
+
+Moreover, it is preferred to have the deployment process as a written description that can be audited and versioned. Such a description could be considered a desired state in which the application is supposed to work. Automation tools can now use the description to narrow the gap between the actual state and the desired state, without the need for a human operator to go through the deployment process imperatively. A complete DevOps environment with a declarative mindset is referred to as **GitOps**.
+
+The state-of-the-art architecture to implement a GitOps environment is predicated on **containerized applications** with a shared language known as CRI and OCI specifications, together with a set of tools based on Kubernetes.
+
+In this article, a local DevOps environment is devised which knows those shared languages. The outcome of the development would be cloud-friendly and can be deployed in many production environments with little to no effort. We use Docker Desktop, Gitlab tools, and Kubernetes on macOS to implement the proposed environment.
+
+TL;DR: The project addressed in this article is accessible from this [repository](https://gitlab.com/reza.apour/simple-api).
+
+
+## Setup
+
+First, you need to create an account on Gitlab's official website, the instructions for which are available on the Internet. Then, install Docker Desktop and enable Kubernetes from `Settings -> Kubernetes`. It will take time to download relevant images and setup a local K8s instance on Docker, so be patient. Also, make sure you have internet access to Docker Hub and Docker Desktop is able to download K8s images.  
+The generated K8s instance must be accessible through the `kubectl` CLI. Running the following command should return `docker-desktop` in the list of contexts:
+
+```go
+kubectl config get-contexts
+```
+
+You can also use other single-node variants of a K8s cluster such as `minikube`.
+
+Next, you have to install `Helm` client to facilitate complex deployments on K8s. Kubernetes resources provide a rich toolset for application deployment, but it doesn't provide a built-in packaging out of the box. Helm is a community-driven tool to aggregate all K8s resource manifests(descriptions) for an application. The Helm packages are called charts and instances of charts deployed on a K9s cluster are called releases. We will create a Helm chart and create a release for our own application throughout this article. Helm client can be installed on a macOS machine with `homebrew` using the following command:
+
+```go
+brew install kubernetes-helm
+```
+
+## Continuous Integration
+
+Suppose you have a simple **Go** web server on port `8080` with a single `/ping` endpoint. You wish to have a local CI/CD pipeline for this application. The application will sleep for a short random time and then respond with a `pong!` string.
+
+```go
+package main
+
+import (
+    "fmt"
+    "math/rand"
+    "net/http"
+    "time"
+)
+
+func Handler(w http.ResponseWriter, req *http.Request) {
+
+    time.Sleep(time.Duration(rand.Intn(800)+200) * time.Millisecond)
+
+    w.Write([]byte("pong!"))
+}
+
+func main() {
+
+    rand.Seed(time.Now().Unix())
+
+    http.HandleFunc("/ping", Handler)
+
+    if err := http.ListenAndServe(":8080", nil); err != nil {
+        fmt.Println(err)
+    }
+}
+```
+
+To run a Gitlab CI script, you need to provide a runner for your project. If you have a valid credit card, you can use Gitlab's shared runners for free. Otherwise, you need to setup a runner on your local machine and attach it to your project on Gitlab. We are going to run a `gitlab-runner` instance on a local K8s cluster using official gitlab helm charts. First, you need to add Gitlab's helm repo:
+
+```bash
+helm repo add gitlab https://charts.gitlab.io
+```
+
+Then update the repo:
+
+```bash
+helm repo update gitlab
+```
+
+Now create a `values.yaml` file and put the following lines inside it:
+
+```yaml
+gitlabUrl: https://gitlab.com/
+runnerRegistrationToken: <REGISTRATION_TOKEN>
+
+rbac:
+  create: true
+  rules:
+    - apiGroups: [""]
+      resources: ["pods"]
+      verbs: ["list", "get", "watch", "create", "delete"]
+    - apiGroups: [""]
+      resources: ["pods/exec"]
+      verbs: ["create"]
+    - apiGroups: [""]
+      resources: ["pods/log"]
+      verbs: ["get"]
+    - apiGroups: [""]
+      resources: ["pods/attach"]
+      verbs: ["list", "get", "create", "delete", "update"]
+    - apiGroups: [""]
+      resources: ["secrets"]
+      verbs: ["list", "get", "create", "delete", "update"]      
+    - apiGroups: [""]
+      resources: ["configmaps"]
+      verbs: ["list", "get", "create", "delete", "update"]      
+
+runners:
+  config: |
+    [[runners]]
+      [runners.kubernetes]
+        privileged = true
+      [[runners.kubernetes.volumes.empty_dir]]
+        name = "docker-certs"
+        mount_path = "/certs/client"
+        medium = "Memory"
+```
+
+
+You have to replace `<REGISTRATION_TOKEN>` with your own Gitlab registration token. To obtain the token go to Gitlab's page for your project. Go to `Settings -> CI/CD` and then expand the `Runners` section. Under this section, click on `New project runner` and after providing some details of the runner you want to create, click on `create runner`. Gitlab will provide a token that you can replace inside your `values.yaml` file.
+
+Note that you have deployed the runner in the `privileged: true` setting to enable Docker-in-Docker mode. Enabling a pod in a privileged mode poses security risks and is not recommended. We talk about an alternative approach later.
+
+We will put all gitlab related deployments in a dedicated namespace:
+
+```bash
+kubectl create namespace gitlab
+```
+
+Now, run the following command inside the directory in which you have created your `values.yaml` file:
+
+```bash
+helm install --namespace gitlab gitlab-runner -f ./values.yaml gitlab/gitlab-runner
+```
+
+If installation succeeds, you should be able to see your runner's state as online on Gitlab. At this point, you are able to run a CI script on your local runner. The runner you have created is a pod on your local Kubernetes cluster, which doesn't have access to your Docker daemon to build the image. The first solution is to use Docker-in-Docker technique to run a Docker daemon container or `dind` to build the image. The CI script to build the application image and then pushing it to the Gitlab registry using this approach is:
+
+```yaml
+build_docker:
+  image: 
+    name: docker:20.10.16
+  variables:
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_TLS_CERTDIR: "/certs"
+    DOCKER_TLS_VERIFY: 1
+    DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
+  services:
+    - docker:20.10.6-dind
+  stage: build 
+  before_script:
+    - docker login $CI_REGISTRY -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD
+  script:
+    - docker build -t "${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG}" .
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
+  after_script:
+    - docker rmi $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
+
+  rules:
+    - if: $CI_COMMIT_TAG
+```
+
+To start a pipleline, you need to create a `tag` from your main branch. Then you can see jobs of the pipeline start to run.
+
+As we discussed earlier this approach has its caveats pertaining security concerns. A better solution is to use Google's `Kaniko` base image to run the pipeline and build the image. Kaniko doesn't need privileged access and builds the image itself. Therefore, you can remove the `runners` section from the runner's `values.yaml` file and redeploy your gitlab runner. The corresponding CI script would be something like this:
+
+```yaml
+build:
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:v1.9.0-debug
+    entrypoint: [""]
+  script:
+    - /kaniko/executor
+      --context "${CI_PROJECT_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/Dockerfile"
+      --destination "${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG}"
+  rules:
+    - if: $CI_COMMIT_TAG
+```
+
+Now that you have built and pushed your application's image to Gitlab's container registry, you need to write a deployment description for your image and deploy it on your Kubernetes cluster using helm. First, you need to make sure Kubernetes has access to your container registry on Gitlab. To do so, first you have to generate a deploy token from `Settings -> Repository` and expanding the Deploy token section. Give your token a name and `read_registry` access and then click on create. Use the generated token's `username` and `password` and run the following command on your machine:
+
+```bash
+kubectl create secret docker-registry regcred --docker-server=registry.gitlab.com --docker-username=<token_username> --docker-password=<token>
+```
+
+This command will generate a secret named `regcred`, which we instruct Kubernetes to use for pulling images from container registry. Then, create a helm chart under `/deployment` directory of your project. Inside the `/deployment` directory run the following command to create a boilerplate for your helm chart:
+
+```bash
+helm create simple-api
+```
+
+It is recommended to have your helm chart inside a separate repository, but here we have create the files inside our application repository for the sake of simplicity. Delete the contents of the `template` directory and replace `values.yaml` file with the following content:
+
+```yaml
+# Default values for simple-api.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 2
+
+image:
+  repository: <path_to_your_repository>
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: <image_tag>
+```
+
+Replace the image's `repository` and `tag` accordingly. Then, Setup a deployment and a service resources inside `templates` folder:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+    name: simple-api
+
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: simple-api
+  template:
+    metadata:
+      labels:
+        app: simple-api
+    spec:
+      containers:
+      - name: simple-app
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+      imagePullSecrets:
+      - name: regcred
+```
+
+Note the `imagePullSecrets` section in the manifest.
+
+```yaml
+apiVersion: v1
+kind: Service 
+
+metadata:
+    name: simple-api
+
+spec:
+    selector:
+        app: simple-api
+    ports:
+    - port: 8000
+      targetPort: 8080
+    type: LoadBalancer
+```
+
+Create a release from your chart by running the following command from your `deployment` directory:
+
+```bash
+helm install -f simple-api/values.yaml simple-api ./simple-api
+```
+
+You should be able to access your web server on port `8000`.
+
+
+
+## Continuous Deployment using ArgoCD
+
+For the next step, you can install ArgoCD on your k8s cluster. First, you have to create a dedicate namespace for it:
+
+```bash
+kubectl create namespace argocd
+```
+
+Then install ArgoCD resources via the following command:
+
+```bash
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+```
+
+After successful installation, port forward the ArgoCD service to be accessible:
+```bash
+kubectl port-forward svc/argocd-server -n argocd 8080:443
+```
+The service will be accessible on port `8080`. Alternatively, you can modify ArgoCD service to make it a `LoadBalancer` type which is accessible on port `443`.
+```bash
+kubectl patch svc argocd-server -n argocd -p '{"spec": {"type": "LoadBalancer"}}'
+```
+
+Get the admin password using the following command and login to the UI using `admin` and the generated password.
+
+```bash
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d; echo
+```
+
+To deploy your helm chart using ArgoCD you need to connect ArgoCD to your repository. To do that you have to create a deploy token with read access rights just like you created for Kubernetes. After that, go to the `Settings -> Repositories` section on ArgoCD UI and connect to your repository using `HTTPS` mode and your deploy token's `username` and `password`.
+
+Then under `Applications` section click on `New App` and define your application. After editing, the yaml file of your app should look like below:
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: simple-api
+spec:
+  destination:
+    name: ''
+    namespace: default
+    server: 'https://kubernetes.default.svc'
+  source:
+    path: deployment/simple-api
+    repoURL: <your_repository_url>
+    targetRevision: HEAD
+    helm:
+      valueFiles:
+        - values.yaml
+  sources: []
+  project: default
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: false
+
+```
+
+Click on `Create` and wait for the application to deploy. After deployment your application must be `Healthy` and `Synced`. At this point, changing your deployment is a matter of changing your helm chart in your git repository. 
+
+## Summary
+
+We have introduced a very basic GitOps flow using Docker, Kubernetes, Helm, Gitlab, and ArgoCD. An aggregated CI/CD flow in this article can be displayed as follow:
+
+![Flow](/static/images/blog/local-development/flow.png)
+
+
+A possible improvement to this setup would be to use a local registry to save your images. 
+
+
