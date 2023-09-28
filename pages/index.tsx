@@ -16,7 +16,7 @@ export default function Home() {
                 Reza A. Alipour
               </h1>
               <h2 className="text-gray-700 dark:text-gray-200 mb-4">
-                Developer at <span className='font-semibold text-sky-900 dark:text-sky-200'><a href='https://www.mapnagroup.com/en'>MAPNA Group</a></span>
+                Software engineer at <span className='font-semibold text-sky-900 dark:text-sky-200'><a href='https://en.wikipedia.org/wiki/Snapp!'>Snapp!</a></span>
               </h2>
               <p className="text-gray-600 dark:text-gray-400 mb-16">
                 Here I write about anything that occupies my mind and might be interesting to you. 
